@@ -1,0 +1,42 @@
+name: Deploy BioSaúde Farma — CI/CD
+
+# Dispara o pipeline a cada push na branch main
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy na instância EC2
+
+    steps:
+      # Passo 1: Baixa o código do repositório
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      # Passo 2: Conecta na EC2 via SSH e executa o deploy
+      - name: Deploy via SSH na EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Atualizar código da aplicação
+            cd /home/ubuntu/biosaude
+            git pull origin main
+
+            # Rebuild da imagem Docker com o código mais recente
+            docker build -t biosaude-onepage .
+
+            # Parar e remover o container antigo (ignora erro se não existir)
+            docker stop biosaude || true
+            docker rm biosaude || true
+
+            # Subir o novo container
+            docker run -d --name biosaude -p 80:80 biosaude-onepage
+
+            # Log de confirmação
+            echo "✅ Deploy concluído — BioSaúde Farma online"
+            docker ps | grep biosaude

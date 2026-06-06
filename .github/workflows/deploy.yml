@@ -1,0 +1,30 @@
+name: Deploy BioSaúde Farma — CI/CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Deploy via SSH na EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/biosaude
+            git pull origin main
+            cp 11.0_ProjetoCloud_OnePage/index.html .
+            docker build -t biosaude-onepage .
+            docker stop biosaude || true
+            docker rm biosaude || true
+            docker run -d --name biosaude -p 80:80 biosaude-onepage
+            echo "✅ Deploy concluído!"
+            docker ps | grep biosaude
